@@ -122,7 +122,9 @@ func LookupIdentityByID(id NumericIdentity) *Identity {
 
 func init() {
 	for key, val := range ReservedIdentities {
-		identity := NewIdentity(val, labels.Labels{key: labels.NewLabel(val.String(), "", labels.LabelSourceReserved)})
+		identity := NewIdentity(val, labels.Labels{key: labels.NewLabel(key, "", labels.LabelSourceReserved)})
+		// Pre-calculate the SHA256 hash.
+		identity.GetLabelsSHA256()
 		reservedIdentityCache[val] = identity
 	}
 }

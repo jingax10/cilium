@@ -100,6 +100,23 @@ func AllocateIdentity(lbls labels.Labels) (*Identity, bool, error) {
 		logfields.IdentityLabels: lbls.String(),
 	}).Debug("Resolving identity")
 
+	// If there only one label with the "reserved" source and a well-known key,
+	// use the well-known identity for that key.
+	if len(lbls) == 1 {
+		for _, lbl := range lbls {
+			if lbl.Source == labels.LabelSourceReserved {
+				if id, ok := ReservedIdentities[lbl.Key]; ok {
+					log.WithFields(logrus.Fields{
+						logfields.Identity:       id,
+						logfields.IdentityLabels: lbls.String(),
+						"isNew":                  false,
+					}).Debug("Resolved reserved identity")
+					return reservedIdentityCache[id], false, nil
+				}
+			}
+		}
+	}
+
 	id, isNew, err := identityAllocator.Allocate(globalIdentity{lbls})
 	if err != nil {
 		return nil, false, err
@@ -118,5 +135,9 @@ func AllocateIdentity(lbls labels.Labels) (*Identity, bool, error) {
 // identity again. This function may result in kvstore operations.
 // After the last user has released the ID, the returned lastUse value is true.
 func (id *Identity) Release() error {
+	// Ignore reserved identities.
+	if reservedIdentityCache[id.ID] != nil {
+		return nil
+	}
 	return identityAllocator.Release(globalIdentity{id.Labels})
 }
